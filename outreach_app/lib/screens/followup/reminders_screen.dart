@@ -5,6 +5,7 @@ import '../../providers/outreach_provider.dart';
 import '../../widgets/reminder_card.dart';
 import '../../widgets/status_indicator_card.dart';
 import 'add_followup_screen.dart';
+import '../../models/followup_reminder.dart';
 
 class RemindersScreen extends StatefulWidget {
   const RemindersScreen({super.key});
@@ -311,8 +312,164 @@ class _RemindersScreenState extends State<RemindersScreen> {
                 ),
               ),
               const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context); // Close bottom sheet
+                  final provider = Provider.of<OutreachProvider>(context, listen: false);
+                  _showEditReminderDialog(context, provider, reminder);
+                },
+                icon: const Icon(Icons.edit_rounded, size: 20),
+                label: const Text('Edit Schedule Details'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50),
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 12),
             ],
           ),
+        );
+      },
+    );
+  }
+
+  void _showEditReminderDialog(BuildContext context, OutreachProvider provider, reminder) {
+    final titleController = TextEditingController(text: reminder.title);
+    final notesController = TextEditingController(text: reminder.notes);
+    String selectedPriorityString = reminder.priority == FollowUpPriority.high 
+        ? 'High' 
+        : reminder.priority == FollowUpPriority.medium 
+            ? 'Medium' 
+            : 'Low';
+
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Row(
+                children: [
+                  Icon(Icons.edit_calendar_rounded, color: AppColors.primary),
+                  SizedBox(width: 8),
+                  Text('Edit Schedule Details', style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: titleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Title / Purpose',
+                          prefixIcon: Icon(Icons.alarm),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter a title';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: selectedPriorityString,
+                        decoration: const InputDecoration(
+                          labelText: 'Priority Level',
+                          prefixIcon: Icon(Icons.priority_high),
+                        ),
+                        items: ['High', 'Medium', 'Low'].map((pr) {
+                          return DropdownMenuItem<String>(
+                            value: pr,
+                            child: Text(pr),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            selectedPriorityString = val;
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: notesController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Notes / Topics',
+                          prefixIcon: Icon(Icons.notes),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    if (formKey.currentState?.validate() ?? false) {
+                      Navigator.pop(ctx);
+                      
+                      // Show loading dialog
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (_) => const Center(child: CircularProgressIndicator()),
+                      );
+
+                      try {
+                        final priority = selectedPriorityString == 'High'
+                            ? FollowUpPriority.high
+                            : selectedPriorityString == 'Medium'
+                                ? FollowUpPriority.medium
+                                : FollowUpPriority.low;
+
+                        // Use PATCH to partially update the title and notes
+                        await provider.patchReminder(reminder.id, {
+                          'title': titleController.text.trim(),
+                          'notes': notesController.text.trim(),
+                        });
+
+                        // Then use PUT to completely update the reminder details
+                        final updatedReminder = reminder.copyWith(
+                          title: titleController.text.trim(),
+                          notes: notesController.text.trim(),
+                          priority: priority,
+                        );
+                        await provider.updateReminder(updatedReminder);
+
+                        if (context.mounted) {
+                          Navigator.pop(context); // Dismiss loading
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Follow-up schedule updated successfully!')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          Navigator.pop(context); // Dismiss loading
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error updating schedule: $e')),
+                          );
+                        }
+                      }
+                    }
+                  },
+                  child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
+                ),
+              ],
+            );
+          },
         );
       },
     );

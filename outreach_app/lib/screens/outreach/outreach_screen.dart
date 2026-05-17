@@ -84,26 +84,32 @@ class _OutreachScreenState extends State<OutreachScreen> {
                       final bool isSelected = _selectedFilter == status;
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(status),
-                          selected: isSelected,
-                          onSelected: (selected) {
+                        child: GestureDetector(
+                          onTap: () {
                             setState(() {
                               _selectedFilter = status;
                             });
                           },
-                          backgroundColor: Colors.white.withOpacity(0.15),
-                          selectedColor: Colors.white,
-                          labelStyle: TextStyle(
-                            color: isSelected ? AppColors.primary : Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                          child: Container(
+                            alignment: Alignment.center,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isSelected ? Colors.white : Colors.white.withOpacity(0.18),
+                              borderRadius: BorderRadius.circular(100),
+                              border: Border.all(
+                                color: isSelected ? Colors.white : Colors.white.withOpacity(0.35),
+                                width: 1.2,
+                              ),
+                            ),
+                            child: Text(
+                              status,
+                              style: TextStyle(
+                                color: isSelected ? AppColors.primary : Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
                           ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(100),
-                            side: BorderSide.none,
-                          ),
-                          showCheckmark: false,
                         ),
                       );
                     }).toList(),

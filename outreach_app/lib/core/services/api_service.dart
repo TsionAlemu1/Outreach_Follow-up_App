@@ -222,6 +222,86 @@ class ApiService {
     }
   }
 
+  // ----------------------------------------------------
+  // PATCH: Patch Outreach Contact (Partial updates)
+  // ----------------------------------------------------
+  Future<OutreachPerson> patchOutreachPerson(int id, Map<String, dynamic> partialData) async {
+    final targetId = id > 100 ? 1 : id;
+    final url = Uri.parse('$baseUrl/posts/$targetId');
+    try {
+      final response = await _client.patch(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode(partialData),
+      ).timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        return OutreachPerson.fromJson({
+          'id': id,
+          ...partialData,
+        });
+      } else {
+        throw Exception('Failed to patch contact. Server code: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Patch contact request failed: $e');
+    }
+  }
+
+  // ----------------------------------------------------
+  // PUT: Update Reminder
+  // ----------------------------------------------------
+  Future<FollowUpReminder> updateReminder(FollowUpReminder reminder) async {
+    final targetId = reminder.id > 100 ? 1 : reminder.id;
+    final url = Uri.parse('$baseUrl/posts/$targetId');
+    try {
+      final response = await _client.put(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode({
+          'id': targetId,
+          'title': reminder.title,
+          'body': reminder.notes,
+          'userId': 1,
+        }),
+      ).timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        return reminder;
+      } else {
+        throw Exception('Failed to update reminder. Server code: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Update reminder request failed: $e');
+    }
+  }
+
+  // ----------------------------------------------------
+  // PATCH: Patch Reminder
+  // ----------------------------------------------------
+  Future<FollowUpReminder> patchReminder(int id, Map<String, dynamic> partialData) async {
+    final targetId = id > 100 ? 1 : id;
+    final url = Uri.parse('$baseUrl/posts/$targetId');
+    try {
+      final response = await _client.patch(
+        url,
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: json.encode(partialData),
+      ).timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        return FollowUpReminder.fromJson({
+          'id': id,
+          ...partialData,
+        });
+      } else {
+        throw Exception('Failed to patch reminder. Server code: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Patch reminder request failed: $e');
+    }
+  }
+
   void dispose() {
     _client.close();
   }

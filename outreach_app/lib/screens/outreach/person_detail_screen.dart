@@ -29,13 +29,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
           if (Navigator.canPop(ctx)) {
             Navigator.pop(ctx);
             // Log interaction: update last followed up to now
-            provider.toggleContactStatus(person.id, person.status); 
-            // In a real app we'd save the interaction, here we update status to trigger listener
-            final idx = provider.people.indexWhere((p) => p.id == person.id);
-            if (idx != -1) {
-              provider.people[idx] = provider.people[idx].copyWith(lastFollowedUp: DateTime.now());
-              provider.notifyListeners();
-            }
+            provider.logInteraction(person.id);
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('$type interaction logged with ${person.name}!')),
             );
@@ -99,14 +93,8 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
                   setState(() {
                     _sessionPrayerRequests.insert(0, txt);
                   });
-                  // Increment count in the provider
-                  final idx = provider.people.indexWhere((p) => p.id == person.id);
-                  if (idx != -1) {
-                    provider.people[idx] = provider.people[idx].copyWith(
-                      prayerRequestsCount: provider.people[idx].prayerRequestsCount + 1,
-                    );
-                    provider.notifyListeners();
-                  }
+                  // Increment count statefully via provider async/PATCH method
+                  provider.addPrayerRequest(person.id);
                   Navigator.pop(ctx);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Prayer request added successfully!')),
@@ -116,6 +104,155 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               child: const Text('Add', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  void _showEditContactDialog(BuildContext context, OutreachProvider provider, OutreachPerson person) {
+    final nameController = TextEditingController(text: person.name);
+    final emailController = TextEditingController(text: person.email);
+    final phoneController = TextEditingController(text: person.phone);
+    String selectedStatus = person.status;
+
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Row(
+                children: [
+                  Icon(Icons.edit_rounded, color: AppColors.primary),
+                  SizedBox(width: 8),
+                  Text('Edit Contact Info', style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: nameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Name',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter a name';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: phoneController,
+                        decoration: const InputDecoration(
+                          labelText: 'Phone',
+                          prefixIcon: Icon(Icons.phone_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: emailController,
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: Icon(Icons.mail_outline),
+                        ),
+                        validator: (value) {
+                          if (value != null && value.trim().isNotEmpty) {
+                            if (!value.contains('@') || !value.contains('.')) {
+                              return 'Please enter a valid email';
+                            }
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: ['New Contact', 'Active', 'Prayer', 'Active Discipleship'].contains(selectedStatus) 
+                            ? selectedStatus 
+                            : 'New Contact',
+                        decoration: const InputDecoration(
+                          labelText: 'Status',
+                          prefixIcon: Icon(Icons.label_outline_rounded),
+                        ),
+                        items: ['New Contact', 'Active', 'Prayer', 'Active Discipleship'].map((st) {
+                          return DropdownMenuItem<String>(
+                            value: st,
+                            child: Text(st),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            selectedStatus = val;
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    if (formKey.currentState?.validate() ?? false) {
+                      Navigator.pop(ctx);
+                      
+                      // Show loading dialog
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (_) => const Center(child: CircularProgressIndicator()),
+                      );
+
+                      try {
+                        // Use PATCH to update name/phone partially
+                        await provider.patchContact(person.id, {
+                          'name': nameController.text.trim(),
+                          'phone': phoneController.text.trim(),
+                        });
+                        
+                        // Then use PUT to completely update remaining fields
+                        final updatedPerson = person.copyWith(
+                          name: nameController.text.trim(),
+                          phone: phoneController.text.trim(),
+                          email: emailController.text.trim(),
+                          status: selectedStatus,
+                        );
+                        await provider.updateContact(updatedPerson);
+
+                        if (context.mounted) {
+                          Navigator.pop(context); // Dismiss loading
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Contact details successfully updated!')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          Navigator.pop(context); // Dismiss loading
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error updating contact: $e')),
+                          );
+                        }
+                      }
+                    }
+                  },
+                  child: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -141,26 +278,7 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
             .where((r) => r.personName.toLowerCase() == person.name.toLowerCase())
             .toList();
 
-        // Status Badge styling
-        Color statusBgColor;
-        Color statusTextColor;
-        switch (person.status.toLowerCase()) {
-          case 'active':
-            statusBgColor = AppColors.lowPriorityBg;
-            statusTextColor = AppColors.lowPriorityText;
-            break;
-          case 'discipleship':
-            statusBgColor = AppColors.mediumPriorityBg;
-            statusTextColor = AppColors.mediumPriorityText;
-            break;
-          case 'new':
-            statusBgColor = const Color(0xFFFFF7ED);
-            statusTextColor = AppColors.orange;
-            break;
-          default:
-            statusBgColor = AppColors.border;
-            statusTextColor = AppColors.textSecondary;
-        }
+
 
         return Scaffold(
           appBar: AppBar(
@@ -171,6 +289,13 @@ class _PersonDetailScreenState extends State<PersonDetailScreen> {
               icon: const Icon(Icons.arrow_back),
               onPressed: () => Navigator.pop(context),
             ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit_rounded, color: Colors.white),
+                onPressed: () => _showEditContactDialog(context, provider, person),
+                tooltip: 'Edit Contact Details',
+              ),
+            ],
           ),
           body: SingleChildScrollView(
             physics: const BouncingScrollPhysics(),

@@ -173,14 +173,166 @@ class OutreachProvider extends ChangeNotifier {
   }
 
   // ----------------------------------------------------
-  // PUT: Toggle Reminder Status (Complete / Uncomplete)
+  // PUT/PATCH: Toggle Reminder Status (Complete / Uncomplete)
   // ----------------------------------------------------
-  void toggleReminderStatus(int id) {
+  Future<void> toggleReminderStatus(int id) async {
     final idx = _reminders.indexWhere((r) => r.id == id);
     if (idx != -1) {
-      final r = _reminders[idx];
-      _reminders[idx] = r.copyWith(status: r.status == 'Done' ? 'Scheduled' : 'Done');
+      final original = _reminders[idx];
+      final newStatus = original.status == 'Done' ? 'Scheduled' : 'Done';
+      final updated = original.copyWith(status: newStatus);
+
+      _reminders[idx] = updated;
       notifyListeners();
+
+      try {
+        await _apiService.patchReminder(id, {'status': newStatus});
+      } catch (e) {
+        // Rollback state in case of connection failure
+        _reminders[idx] = original;
+        _errorMessage = 'Failed to sync status update with server: $e';
+        notifyListeners();
+        rethrow;
+      }
+    }
+  }
+
+  // ----------------------------------------------------
+  // PATCH: Partial Contact Update
+  // ----------------------------------------------------
+  Future<void> patchContact(int id, Map<String, dynamic> partialData) async {
+    final idx = _people.indexWhere((p) => p.id == id);
+    if (idx != -1) {
+      final original = _people[idx];
+      
+      // Construct patched in-memory person
+      final name = partialData['name'] ?? original.name;
+      final email = partialData['email'] ?? original.email;
+      final phone = partialData['phone'] ?? original.phone;
+      final status = partialData['status'] ?? original.status;
+      
+      final updated = original.copyWith(
+        name: name,
+        email: email,
+        phone: phone,
+        status: status,
+      );
+
+      _people[idx] = updated;
+      notifyListeners();
+
+      try {
+        await _apiService.patchOutreachPerson(id, partialData);
+      } catch (e) {
+        _people[idx] = original;
+        _errorMessage = 'Failed to patch contact on API: $e';
+        notifyListeners();
+        rethrow;
+      }
+    }
+  }
+
+  // ----------------------------------------------------
+  // PATCH: Log Interaction (Updates lastFollowedUp date)
+  // ----------------------------------------------------
+  Future<void> logInteraction(int personId) async {
+    final idx = _people.indexWhere((p) => p.id == personId);
+    if (idx != -1) {
+      final original = _people[idx];
+      final updated = original.copyWith(lastFollowedUp: DateTime.now());
+      _people[idx] = updated;
+      notifyListeners();
+
+      try {
+        await _apiService.patchOutreachPerson(personId, {
+          'lastFollowedUp': updated.lastFollowedUp.toIso8601String(),
+        });
+      } catch (e) {
+        _people[idx] = original;
+        _errorMessage = 'Failed to log interaction on API: $e';
+        notifyListeners();
+        rethrow;
+      }
+    }
+  }
+
+  // ----------------------------------------------------
+  // PATCH/PUT: Add Prayer Request (Increments prayer request count)
+  // ----------------------------------------------------
+  Future<void> addPrayerRequest(int personId) async {
+    final idx = _people.indexWhere((p) => p.id == personId);
+    if (idx != -1) {
+      final original = _people[idx];
+      final newCount = original.prayerRequestsCount + 1;
+      final updated = original.copyWith(prayerRequestsCount: newCount);
+      _people[idx] = updated;
+      notifyListeners();
+
+      try {
+        await _apiService.patchOutreachPerson(personId, {
+          'prayerRequestsCount': newCount,
+        });
+      } catch (e) {
+        _people[idx] = original;
+        _errorMessage = 'Failed to increment prayer requests on API: $e';
+        notifyListeners();
+        rethrow;
+      }
+    }
+  }
+
+  // ----------------------------------------------------
+  // PUT: Complete Reminder Update
+  // ----------------------------------------------------
+  Future<void> updateReminder(FollowUpReminder reminder) async {
+    final idx = _reminders.indexWhere((r) => r.id == reminder.id);
+    if (idx != -1) {
+      final original = _reminders[idx];
+      _reminders[idx] = reminder;
+      notifyListeners();
+
+      try {
+        await _apiService.updateReminder(reminder);
+      } catch (e) {
+        _reminders[idx] = original;
+        _errorMessage = 'Failed to update reminder on API: $e';
+        notifyListeners();
+        rethrow;
+      }
+    }
+  }
+
+  // ----------------------------------------------------
+  // PATCH: Partial Reminder Update
+  // ----------------------------------------------------
+  Future<void> patchReminder(int id, Map<String, dynamic> partialData) async {
+    final idx = _reminders.indexWhere((r) => r.id == id);
+    if (idx != -1) {
+      final original = _reminders[idx];
+      
+      final title = partialData['title'] ?? original.title;
+      final personName = partialData['personName'] ?? original.personName;
+      final notes = partialData['notes'] ?? original.notes;
+      final status = partialData['status'] ?? original.status;
+      
+      final updated = original.copyWith(
+        title: title,
+        personName: personName,
+        notes: notes,
+        status: status,
+      );
+
+      _reminders[idx] = updated;
+      notifyListeners();
+
+      try {
+        await _apiService.patchReminder(id, partialData);
+      } catch (e) {
+        _reminders[idx] = original;
+        _errorMessage = 'Failed to patch reminder on API: $e';
+        notifyListeners();
+        rethrow;
+      }
     }
   }
 
