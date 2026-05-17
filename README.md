@@ -8,24 +8,24 @@ This project was developed as part of a CRUD API consumption assignment using Fl
 
 ## Features
 
-* View outreach follow-up records
-* Add new outreach contacts
-* Update follow-up status
-* Delete outreach records
-* Manage outreach notes
-* Clean and responsive UI
-* Loading and error handling states
-* REST API integration
+- View outreach follow-up records
+- Add new outreach contacts
+- Update follow-up status
+- Delete outreach records
+- Manage outreach notes
+- Clean and responsive UI
+- Loading and error handling states
+- REST API integration
 
 ---
 
 ## Technologies Used
 
-* Flutter
-* Dart
-* Provider State Management
-* HTTP Package
-* REST API (JSONPlaceholder)
+- Flutter
+- Dart
+- Provider State Management
+- HTTP Package
+- REST API (JSONPlaceholder)
 
 ---
 
@@ -67,23 +67,39 @@ https://jsonplaceholder.typicode.com/
 
 ### Home Screen
 
-not finished yet
+![alt text](<Screenshot 2026-05-17 145548.png>)
 
 ### Add Person Screen
 
-not finished yet
+![alt text](Add_people.png)
 
 ### Detail Screen
 
-not finished yet
+![alt text](Detail_page.png)
 
 ### Edit Screen
 
-not finished yet
+![alt text](Edit_page.png)
 
----
+### Delete page
 
-## Getting Started
+![alt text](Delet_page.png)
+
+### Delete confirm
+
+![alt text](image.png)
+
+## Follow up reminder
+
+![alt text](image-1.png)
+
+### Add followup
+
+![alt text](image-2.png)
+
+### Edit follow-up
+
+![alt text](image-3.png)
 
 ### Clone the repository
 
@@ -122,10 +138,10 @@ Developed by [Tsion Alemu]
 
 ## Assignment Requirements Covered
 
-* CRUD API consumption
-* HTTP package integration
-* Provider state management
-* Clean project structure
-* Error handling
-* Loading states
-* GitHub repository management
+- CRUD API consumption
+- HTTP package integration
+- Provider state management
+- Clean project structure
+- Error handling
+- Loading states
+- GitHub repository management
