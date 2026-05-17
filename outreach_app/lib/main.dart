@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'core/theme/app_theme.dart';
 import 'providers/outreach_provider.dart';
-import 'screens/home_screen.dart';
+import 'screens/splash/splash_screen.dart';
 
 void main() {
   runApp(const OutreachApp());
@@ -15,14 +16,12 @@ class OutreachApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => OutreachProvider(),
       child: MaterialApp(
-        title: 'Outreach Follow-up',
+        title: 'Outreach Follow-up App',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
-          useMaterial3: true,
-        ),
-        home: const HomeScreen(),
+        theme: AppTheme.lightTheme,
+        home: const SplashScreen(),
       ),
     );
   }
 }
+

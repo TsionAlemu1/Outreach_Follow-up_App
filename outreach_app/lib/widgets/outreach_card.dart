@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/theme/app_colors.dart';
 import '../models/outreach_person.dart';
 
 class OutreachCard extends StatelessWidget {
@@ -15,62 +16,189 @@ class OutreachCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+    // Status Badge colors
+    Color statusBgColor;
+    Color statusTextColor;
+    
+    switch (person.status.toLowerCase()) {
+      case 'active':
+        statusBgColor = AppColors.lowPriorityBg;
+        statusTextColor = AppColors.lowPriorityText;
+        break;
+      case 'discipleship':
+        statusBgColor = AppColors.mediumPriorityBg;
+        statusTextColor = AppColors.mediumPriorityText;
+        break;
+      case 'new':
+        statusBgColor = const Color(0xFFFFF7ED);
+        statusTextColor = AppColors.orange;
+        break;
+      default:
+        statusBgColor = AppColors.border;
+        statusTextColor = AppColors.textSecondary;
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border.withOpacity(0.5)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.01),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
+        padding: const EdgeInsets.all(16),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
+            // Header Row: Name & Status
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
                     person.name,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          decoration: person.isFollowedUp ? TextDecoration.lineThrough : null,
-                        ),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    person.followUpNotes,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall,
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusBgColor,
+                    borderRadius: BorderRadius.circular(100),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'ID: ${person.id}',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Theme.of(context).colorScheme.outline,
-                        ),
+                  child: Text(
+                    person.status,
+                    style: TextStyle(
+                      color: statusTextColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            
+            // Detail Rows (Phone & Email)
+            if (person.phone.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    const Icon(Icons.phone_outlined, size: 16, color: AppColors.iconColor),
+                    const SizedBox(width: 8),
+                    Text(
+                      person.phone,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (person.email.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    const Icon(Icons.mail_outline_rounded, size: 16, color: AppColors.iconColor),
+                    const SizedBox(width: 8),
+                    Text(
+                      person.email,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            
+            const Divider(color: AppColors.border, height: 24),
+            
+            // Follow-up Progress Bar
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Follow-up Rate',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                Text(
+                  '${person.followUpRate.toInt()}%',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(100),
+              child: LinearProgressIndicator(
+                value: person.followUpRate / 100,
+                backgroundColor: AppColors.border,
+                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                minHeight: 8,
               ),
             ),
-            Column(
+            
+            const SizedBox(height: 16),
+            
+            // Last followed up & Actions
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                IconButton(
-                  icon: Icon(
-                    person.isFollowedUp ? Icons.check_circle : Icons.radio_button_unchecked,
-                    color: person.isFollowedUp ? Colors.green : null,
+                Text(
+                  'Last active: ${_formatLastFollowedUp(person.lastFollowedUp)}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textLight,
+                    fontWeight: FontWeight.w500,
                   ),
-                  tooltip: person.isFollowedUp ? 'Mark not followed up' : 'Mark as followed up',
-                  onPressed: onToggle,
                 ),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  color: Theme.of(context).colorScheme.error,
-                  tooltip: 'Delete',
-                  onPressed: onDelete,
-                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.check_circle_outline, color: AppColors.green),
+                      tooltip: 'Mark followed up',
+                      onPressed: onToggle,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.red),
+                      tooltip: 'Remove',
+                      onPressed: onDelete,
+                    ),
+                  ],
+                )
               ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _formatLastFollowedUp(DateTime dt) {
+    final diff = DateTime.now().difference(dt).inDays;
+    if (diff <= 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    if (diff < 7) return '$diff days ago';
+    if (diff < 30) return '${(diff / 7).floor()} weeks ago';
+    return '${(diff / 30).floor()} months ago';
   }
 }
