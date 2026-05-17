@@ -269,7 +269,7 @@ class _AddFollowupScreenState extends State<AddFollowupScreen> {
     );
   }
 
-  void _saveFollowup(OutreachProvider provider) {
+  Future<void> _saveFollowup(OutreachProvider provider) async {
     if (_formKey.currentState!.validate()) {
       // Assemble selected DateTime
       final date = _selectedDate ?? DateTime.now();
@@ -290,25 +290,41 @@ class _AddFollowupScreenState extends State<AddFollowupScreen> {
         priority = FollowUpPriority.low;
       }
 
-      provider.addReminder(
-        _selectedType!,
-        _selectedPerson!,
-        finalDateTime,
-        priority,
-        _notesController.text.trim(),
+      // Show custom progress loading placeholder
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const Center(child: CircularProgressIndicator()),
       );
 
-      // In case we marked overdue or completed manually
-      if (_selectedStatus != 'Scheduled') {
-        final lastReminder = provider.reminders.first;
-        final updated = lastReminder.copyWith(status: _selectedStatus);
-        provider.reminders[0] = updated;
+      try {
+        await provider.addReminder(
+          _selectedType!,
+          _selectedPerson!,
+          finalDateTime,
+          priority,
+          _notesController.text.trim(),
+        );
+
+        // In case we marked overdue or completed manually
+        if (_selectedStatus != 'Scheduled' && provider.reminders.isNotEmpty) {
+          final lastReminder = provider.reminders.first;
+          final updated = lastReminder.copyWith(status: _selectedStatus);
+          provider.reminders[0] = updated;
+          provider.notifyListeners();
+        }
+
+        Navigator.pop(context); // Pop loading dialog
+        Navigator.pop(context); // Return to previous screen
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Follow-up schedule created successfully!')),
+        );
+      } catch (e) {
+        Navigator.pop(context); // Pop loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save reminder on API: $e')),
+        );
       }
-
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Follow-up schedule created successfully!')),
-      );
     }
   }
 }

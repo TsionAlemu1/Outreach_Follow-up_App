@@ -24,17 +24,54 @@ class FollowUpReminder {
   });
 
   factory FollowUpReminder.fromJson(Map<String, dynamic> json) {
+    final int parsedId = json['id'] is int ? json['id'] : int.tryParse(json['id']?.toString() ?? '') ?? 0;
+    
+    String parsedTitle = json['title']?.toString() ?? '';
+    if (parsedTitle.isEmpty) parsedTitle = 'Bible Study';
+    
+    if (parsedTitle.split(' ').length > 4) {
+      final words = parsedTitle.split(' ');
+      parsedTitle = words.map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').take(2).join(' ') + ' Share';
+    }
+
+    final String parsedPersonName = json['personName']?.toString() ?? 'Michael Lee';
+    
+    DateTime parsedDate = DateTime.now();
+    if (json['dateTime'] != null) {
+      parsedDate = DateTime.tryParse(json['dateTime'].toString()) ?? DateTime.now();
+    } else {
+      parsedDate = DateTime.now().add(Duration(days: (parsedId % 10) - 2));
+    }
+
+    FollowUpPriority parsedPriority = FollowUpPriority.medium;
+    if (json['priority'] != null) {
+      final priStr = json['priority'].toString().toLowerCase();
+      if (priStr.contains('high')) parsedPriority = FollowUpPriority.high;
+      if (priStr.contains('low')) parsedPriority = FollowUpPriority.low;
+    } else {
+      final priorities = [FollowUpPriority.low, FollowUpPriority.medium, FollowUpPriority.high];
+      parsedPriority = priorities[parsedId % priorities.length];
+    }
+
+    String parsedStatus = json['status']?.toString() ?? 'Scheduled';
+    if (json['status'] == null) {
+      if (parsedDate.isBefore(DateTime.now())) {
+        parsedStatus = 'Overdue';
+      } else {
+        parsedStatus = 'Scheduled';
+      }
+    }
+
+    final String parsedNotes = json['notes']?.toString() ?? json['body']?.toString() ?? '';
+
     return FollowUpReminder(
-      id: json['id'] as int,
-      title: json['title'] as String,
-      personName: json['personName'] as String,
-      dateTime: DateTime.parse(json['dateTime'] as String),
-      priority: FollowUpPriority.values.firstWhere(
-        (e) => e.toString().split('.').last == (json['priority'] ?? 'medium'),
-        orElse: () => FollowUpPriority.medium,
-      ),
-      status: json['status'] ?? 'Scheduled',
-      notes: json['notes'] ?? '',
+      id: parsedId,
+      title: parsedTitle,
+      personName: parsedPersonName,
+      dateTime: parsedDate,
+      priority: parsedPriority,
+      status: parsedStatus,
+      notes: parsedNotes,
     );
   }
 

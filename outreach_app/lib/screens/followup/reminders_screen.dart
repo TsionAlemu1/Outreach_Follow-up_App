@@ -26,6 +26,35 @@ class _RemindersScreenState extends State<RemindersScreen> {
       ),
       body: Consumer<OutreachProvider>(
         builder: (context, provider, child) {
+          if (provider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (provider.errorMessage != null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.cloud_off_rounded, size: 56, color: AppColors.red),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Failed to load reminders',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      provider.errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
           // Compute matching list
           List filteredReminders = provider.reminders;
           if (_activeFilter == 'Week') {

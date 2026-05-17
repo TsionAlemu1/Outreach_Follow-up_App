@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../providers/outreach_provider.dart';
 import '../../widgets/outreach_card.dart';
+import 'person_detail_screen.dart';
 
 class OutreachScreen extends StatefulWidget {
   const OutreachScreen({super.key});
@@ -79,7 +80,7 @@ class _OutreachScreenState extends State<OutreachScreen> {
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
-                    children: ['All', 'Active', 'Discipleship', 'New', 'Inactive'].map((status) {
+                    children: ['All', 'New Contact', 'Active', 'Prayer', 'Discipleship'].map((status) {
                       final bool isSelected = _selectedFilter == status;
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
@@ -116,14 +117,53 @@ class _OutreachScreenState extends State<OutreachScreen> {
           Expanded(
             child: Consumer<OutreachProvider>(
               builder: (context, provider, child) {
+                if (provider.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (provider.errorMessage != null) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.cloud_off_rounded, size: 48, color: AppColors.red),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Failed to Load Contacts',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            provider.errorMessage!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
                 // Filter the contacts in memory
                 final filteredList = provider.people.where((person) {
                   final matchesSearch = person.name.toLowerCase().contains(_searchQuery) ||
                       person.phone.contains(_searchQuery) ||
                       person.email.toLowerCase().contains(_searchQuery);
                   
-                  final matchesStatus = _selectedFilter == 'All' ||
-                      person.status.toLowerCase() == _selectedFilter.toLowerCase();
+                  bool matchesStatus = false;
+                  if (_selectedFilter == 'All') {
+                    matchesStatus = true;
+                  } else if (_selectedFilter == 'New Contact') {
+                    matchesStatus = person.status.toLowerCase() == 'new contact' || person.status.toLowerCase() == 'new';
+                  } else if (_selectedFilter == 'Active') {
+                    matchesStatus = person.status.toLowerCase() == 'active';
+                  } else if (_selectedFilter == 'Prayer') {
+                    matchesStatus = person.status.toLowerCase() == 'prayer';
+                  } else if (_selectedFilter == 'Discipleship') {
+                    matchesStatus = person.status.toLowerCase() == 'active discipleship' || person.status.toLowerCase() == 'discipleship';
+                  }
                   
                   return matchesSearch && matchesStatus;
                 }).toList();
@@ -137,12 +177,12 @@ class _OutreachScreenState extends State<OutreachScreen> {
                         children: [
                           Icon(Icons.people_outline_rounded, size: 64, color: AppColors.textLight.withOpacity(0.5)),
                           const SizedBox(height: 16),
-                          Text(
+                          const Text(
                             'No contacts match your selection',
                             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
                           ),
                           const SizedBox(height: 8),
-                          Text(
+                          const Text(
                             'Add a new campus contact by clicking the top button.',
                             textAlign: TextAlign.center,
                             style: TextStyle(fontSize: 13, color: AppColors.textLight),
@@ -159,18 +199,38 @@ class _OutreachScreenState extends State<OutreachScreen> {
                   itemCount: filteredList.length,
                   itemBuilder: (context, index) {
                     final person = filteredList[index];
-                    return OutreachCard(
-                      person: person,
-                      onToggle: () {
-                        // Cycles status
-                        String newStatus = 'Active';
-                        if (person.status == 'New') newStatus = 'Active';
-                        if (person.status == 'Active') newStatus = 'Discipleship';
-                        if (person.status == 'Discipleship') newStatus = 'Inactive';
-                        if (person.status == 'Inactive') newStatus = 'New';
-                        provider.toggleContactStatus(person.id, newStatus);
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PersonDetailScreen(personId: person.id),
+                          ),
+                        );
                       },
-                      onDelete: () => _confirmDelete(context, provider, person.id),
+                      child: OutreachCard(
+                        person: person,
+                        onToggle: () async {
+                          // Cycles status
+                          String newStatus = 'Active';
+                          if (person.status == 'New') newStatus = 'Active';
+                          if (person.status == 'Active') newStatus = 'Discipleship';
+                          if (person.status == 'Discipleship') newStatus = 'Inactive';
+                          if (person.status == 'Inactive') newStatus = 'New';
+                          
+                          try {
+                            await provider.toggleContactStatus(person.id, newStatus);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Updated ${person.name} status to $newStatus!')),
+                            );
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Failed to update status on server. Rolled back.')),
+                            );
+                          }
+                        },
+                        onDelete: () => _confirmDelete(context, provider, person.id),
+                      ),
                     );
                   },
                 );
@@ -201,12 +261,19 @@ class _OutreachScreenState extends State<OutreachScreen> {
           ),
           TextButton(
             child: const Text('Remove', style: TextStyle(color: AppColors.red, fontWeight: FontWeight.bold)),
-            onPressed: () {
-              provider.deleteContact(id);
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Contact removed successfully')),
-              );
+            onPressed: () async {
+              try {
+                await provider.deleteContact(id);
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Contact removed from fellowship records')),
+                );
+              } catch (e) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Delete failed: $e')),
+                );
+              }
             },
           ),
         ],
@@ -307,14 +374,30 @@ class _OutreachScreenState extends State<OutreachScreen> {
 
                   // Save Button
                   ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
                       if (formKey.currentState!.validate()) {
                         formKey.currentState!.save();
-                        context.read<OutreachProvider>().addContact(name, email, phone, status);
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Contact added successfully!')),
+                        
+                        // Show custom progress loading placeholder
+                        showDialog(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (ctx) => const Center(child: CircularProgressIndicator()),
                         );
+                        
+                        try {
+                          await context.read<OutreachProvider>().addContact(name, email, phone, status);
+                          Navigator.pop(context); // Pop loading dialog
+                          Navigator.pop(context); // Pop bottom sheet
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Contact added successfully!')),
+                          );
+                        } catch (e) {
+                          Navigator.pop(context); // Pop loading dialog
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to save contact on API: $e')),
+                          );
+                        }
                       }
                     },
                     child: const Text('Add Contact'),

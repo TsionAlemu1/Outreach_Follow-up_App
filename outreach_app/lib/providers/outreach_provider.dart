@@ -32,8 +32,13 @@ class OutreachProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Load All App Data
-  Future<void> fetchAllData() async {
+  Future<void> fetchAllData({bool forceRefresh = false}) async {
+    // Only query mock server if data lists are empty or forceRefresh is true.
+    // This statefully preserves newly created/deleted contacts inside provider memory!
+    if (!forceRefresh && _people.isNotEmpty) {
+      return;
+    }
+
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -56,8 +61,14 @@ class OutreachProvider extends ChangeNotifier {
     }
   }
 
-  // Add Contact Action
+  // ----------------------------------------------------
+  // POST: Add Contact Action
+  // ----------------------------------------------------
   Future<void> addContact(String name, String email, String phone, String status) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
     final newContact = OutreachPerson(
       id: DateTime.now().millisecondsSinceEpoch,
       name: name,
@@ -72,15 +83,23 @@ class OutreachProvider extends ChangeNotifier {
     try {
       final created = await _apiService.createOutreachPerson(newContact);
       _people.insert(0, created);
-      notifyListeners();
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = 'Failed to create contact on API: $e';
+      rethrow; // Pass up to display SnackBar feedback in the UI
+    } finally {
+      _isLoading = false;
       notifyListeners();
     }
   }
 
-  // Add Reminder Action
+  // ----------------------------------------------------
+  // POST: Add Reminder Action
+  // ----------------------------------------------------
   Future<void> addReminder(String title, String personName, DateTime dateTime, FollowUpPriority priority, String notes) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
     final newReminder = FollowUpReminder(
       id: DateTime.now().millisecondsSinceEpoch,
       title: title,
@@ -94,14 +113,68 @@ class OutreachProvider extends ChangeNotifier {
     try {
       final created = await _apiService.createReminder(newReminder);
       _reminders.insert(0, created);
-      notifyListeners();
     } catch (e) {
-      _errorMessage = e.toString();
+      _errorMessage = 'Failed to schedule reminder on API: $e';
+      rethrow;
+    } finally {
+      _isLoading = false;
       notifyListeners();
     }
   }
 
-  // Toggle Reminder Status (e.g. Complete)
+  // ----------------------------------------------------
+  // PUT: Toggle Contact Status (Cycles Status & PUTs changes)
+  // ----------------------------------------------------
+  Future<void> toggleContactStatus(int id, String newStatus) async {
+    final idx = _people.indexWhere((p) => p.id == id);
+    if (idx != -1) {
+      final updatedPerson = _people[idx].copyWith(
+        status: newStatus,
+        lastFollowedUp: DateTime.now(),
+      );
+
+      // In-memory update for instant snappy UI feedback
+      final original = _people[idx];
+      _people[idx] = updatedPerson;
+      notifyListeners();
+
+      try {
+        await _apiService.updateOutreachPerson(updatedPerson);
+      } catch (e) {
+        // Rollback state in case of connection failure
+        _people[idx] = original;
+        _errorMessage = 'Failed to sync status update with server: $e';
+        notifyListeners();
+        rethrow;
+      }
+    }
+  }
+
+  // ----------------------------------------------------
+  // PUT: General Contact Update (E.g. from detail edits)
+  // ----------------------------------------------------
+  Future<void> updateContact(OutreachPerson person) async {
+    final idx = _people.indexWhere((p) => p.id == person.id);
+    if (idx != -1) {
+      final original = _people[idx];
+      _people[idx] = person;
+      notifyListeners();
+
+      try {
+        await _apiService.updateOutreachPerson(person);
+      } catch (e) {
+        // Rollback
+        _people[idx] = original;
+        _errorMessage = 'Failed to update contact on API: $e';
+        notifyListeners();
+        rethrow;
+      }
+    }
+  }
+
+  // ----------------------------------------------------
+  // PUT: Toggle Reminder Status (Complete / Uncomplete)
+  // ----------------------------------------------------
   void toggleReminderStatus(int id) {
     final idx = _reminders.indexWhere((r) => r.id == id);
     if (idx != -1) {
@@ -111,22 +184,31 @@ class OutreachProvider extends ChangeNotifier {
     }
   }
 
-  // Toggle Contact Status
-  void toggleContactStatus(int id, String newStatus) {
+  // ----------------------------------------------------
+  // DELETE: Delete Contact Action
+  // ----------------------------------------------------
+  Future<void> deleteContact(int id) async {
     final idx = _people.indexWhere((p) => p.id == id);
     if (idx != -1) {
-      _people[idx] = _people[idx].copyWith(status: newStatus);
+      final original = _people[idx];
+      _people.removeAt(idx);
       notifyListeners();
+
+      try {
+        await _apiService.deleteOutreachPerson(id);
+      } catch (e) {
+        // Rollback
+        _people.insert(idx, original);
+        _errorMessage = 'Failed to delete contact from API: $e';
+        notifyListeners();
+        rethrow;
+      }
     }
   }
 
-  // Delete Contact Action
-  void deleteContact(int id) {
-    _people.removeWhere((p) => p.id == id);
-    notifyListeners();
-  }
-
-  // Delete Reminder Action
+  // ----------------------------------------------------
+  // DELETE: Delete Reminder Action
+  // ----------------------------------------------------
   void deleteReminder(int id) {
     _reminders.removeWhere((r) => r.id == id);
     notifyListeners();
@@ -134,7 +216,6 @@ class OutreachProvider extends ChangeNotifier {
 
   // --- DYNAMIC STATISTICS COMPUTATIONS ---
 
-  // Dashboard Stat Cards
   int get activeContactsCount => _people.where((p) => p.status == 'Active' || p.status == 'Discipleship').length;
 
   int get remindersThisWeekCount {
@@ -153,7 +234,6 @@ class OutreachProvider extends ChangeNotifier {
     return double.parse((total / _people.length).toStringAsFixed(1));
   }
 
-  // Reminders Page Stats
   int get overdueRemindersCount => _reminders.where((r) => r.status == 'Overdue').length;
 
   int get remindersThisMonthCount {

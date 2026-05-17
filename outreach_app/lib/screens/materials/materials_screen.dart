@@ -128,6 +128,35 @@ class _MaterialsScreenState extends State<MaterialsScreen> {
           Expanded(
             child: Consumer<OutreachProvider>(
               builder: (context, provider, child) {
+                if (provider.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (provider.errorMessage != null) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.cloud_off_rounded, size: 48, color: AppColors.red),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Failed to Load Materials',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            provider.errorMessage!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
                 final list = provider.materials.where((m) {
                   final matchesSearch = m.title.toLowerCase().contains(_searchQuery) ||
                       m.description.toLowerCase().contains(_searchQuery);

@@ -22,16 +22,22 @@ class OutreachCard extends StatelessWidget {
     
     switch (person.status.toLowerCase()) {
       case 'active':
-        statusBgColor = AppColors.lowPriorityBg;
-        statusTextColor = AppColors.lowPriorityText;
+        statusBgColor = const Color(0xFFEFF6FF); // Light blue
+        statusTextColor = const Color(0xFF2563EB); // Royal blue
         break;
+      case 'active discipleship':
       case 'discipleship':
-        statusBgColor = AppColors.mediumPriorityBg;
-        statusTextColor = AppColors.mediumPriorityText;
+        statusBgColor = const Color(0xFFECFDF5); // Light emerald green
+        statusTextColor = const Color(0xFF059669); // Emerald text
         break;
+      case 'new contact':
       case 'new':
-        statusBgColor = const Color(0xFFFFF7ED);
+        statusBgColor = const Color(0xFFFFF7ED); // Orange background
         statusTextColor = AppColors.orange;
+        break;
+      case 'prayer':
+        statusBgColor = const Color(0xFFFDF2F8); // Pink background
+        statusTextColor = const Color(0xFFDB2777); // Pink/magenta text
         break;
       default:
         statusBgColor = AppColors.border;

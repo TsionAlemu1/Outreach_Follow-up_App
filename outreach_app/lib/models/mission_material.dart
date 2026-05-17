@@ -18,14 +18,22 @@ class MissionMaterial {
   });
 
   factory MissionMaterial.fromJson(Map<String, dynamic> json) {
+    final int parsedId = json['id'] is int ? json['id'] : int.tryParse(json['id']?.toString() ?? '') ?? 0;
+    final String parsedTitle = json['title']?.toString() ?? 'Gospel Tract';
+    final String parsedDesc = json['description']?.toString() ?? json['body']?.toString() ?? '';
+    final String parsedCat = json['category']?.toString() ?? 'Tracts';
+    final String parsedUrl = json['url']?.toString() ?? 'https://fellowship.materials/resource_$parsedId.pdf';
+    final int dlCount = json['downloadCount'] is int ? json['downloadCount'] : int.tryParse(json['downloadCount']?.toString() ?? '') ?? (parsedId * 12);
+    final String fileType = json['fileType']?.toString() ?? 'PDF';
+
     return MissionMaterial(
-      id: json['id'] as int,
-      title: json['title'] as String,
-      description: json['description'] ?? '',
-      category: json['category'] ?? 'Tracts',
-      url: json['url'] ?? '',
-      downloadCount: json['downloadCount'] ?? 0,
-      fileType: json['fileType'] ?? 'PDF',
+      id: parsedId,
+      title: parsedTitle,
+      description: parsedDesc,
+      category: parsedCat,
+      url: parsedUrl,
+      downloadCount: dlCount,
+      fileType: fileType,
     );
   }
 
